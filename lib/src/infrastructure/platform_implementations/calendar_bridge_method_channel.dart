@@ -48,7 +48,7 @@ final class CalendarBridgeMethodChannel implements CalendarRepository {
       return result
           .map(
             (json) => Calendar.fromJson(
-              Map<String, dynamic>.from(json as Map<Object?, Object?>),
+              _convertToStringDynamicMap(json as Map<Object?, Object?>),
             ),
           )
           .toList();
@@ -77,13 +77,19 @@ final class CalendarBridgeMethodChannel implements CalendarRepository {
 
       if (result == null) return [];
 
-      return result
-          .map(
-            (json) => CalendarEvent.fromJson(
-              Map<String, dynamic>.from(json as Map<Object?, Object?>),
-            ),
-          )
-          .toList();
+      return result.map(
+        (json) {
+          print('DEBUG: json type: ${json.runtimeType}');
+          print('DEBUG: json content: $json');
+          if (json is Map<String, dynamic>) {
+            return CalendarEvent.fromJson(json);
+          } else {
+            return CalendarEvent.fromJson(
+              _convertToStringDynamicMap(json as Map<Object?, Object?>),
+            );
+          }
+        },
+      ).toList();
     } on PlatformException catch (e) {
       throw _mapPlatformException(e);
     } catch (e) {
@@ -160,7 +166,7 @@ final class CalendarBridgeMethodChannel implements CalendarRepository {
       }
 
       return Calendar.fromJson(
-        Map<String, dynamic>.from(result as Map<Object?, Object?>),
+        _convertToStringDynamicMap(result as Map<Object?, Object?>),
       );
     } on PlatformException catch (e) {
       throw _mapPlatformException(e);
@@ -256,6 +262,42 @@ final class CalendarBridgeMethodChannel implements CalendarRepository {
     } on PlatformException catch (e) {
       throw _mapPlatformException(e);
     }
+  }
+
+  /// Recursively converts `Map<Object?, Object?>` to `Map<String, dynamic>`
+  /// This handles nested maps and lists that come from platform channels
+  Map<String, dynamic> _convertToStringDynamicMap(
+    Map<Object?, Object?> source,
+  ) {
+    final result = <String, dynamic>{};
+
+    for (final entry in source.entries) {
+      final key = entry.key?.toString() ?? '';
+      final value = entry.value;
+
+      if (value is Map<Object?, Object?>) {
+        result[key] = _convertToStringDynamicMap(value);
+      } else if (value is List) {
+        result[key] = _convertListToDynamic(value);
+      } else {
+        result[key] = value;
+      }
+    }
+
+    return result;
+  }
+
+  /// Recursively converts List elements that may contain nested maps
+  List<dynamic> _convertListToDynamic(List<dynamic> source) {
+    return source.map((item) {
+      if (item is Map<Object?, Object?>) {
+        return _convertToStringDynamicMap(item);
+      } else if (item is List) {
+        return _convertListToDynamic(item);
+      } else {
+        return item;
+      }
+    }).toList();
   }
 
   /// Map platform exceptions to domain-specific exceptions
