@@ -1,0 +1,238 @@
+name: Release and Publish
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  # Test job with matrix strategy
+  test:
+    name: Test on ${{ matrix.os }} with Flutter ${{ matrix.flutter-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        flutter-version: ['3.3.0', '3.10.0', 'stable']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for changelog generation
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ matrix.flutter-version }}
+          channel: 'stable'
+      
+      - name: Install dependencies
+        run: flutter pub get
+      
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+      
+      - name: Analyze project source
+        run: dart analyze --fatal-infos
+      
+      - name: Run tests
+        run: flutter test --coverage
+      
+      - name: Run example tests
+        working-directory: example
+        run: |
+          flutter pub get
+          flutter test
+
+  # Release job that runs after tests pass
+  release:
+    name: Release and Publish
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+          channel: 'stable'
+      
+      - name: Install dependencies
+        run: flutter pub get
+      
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //')
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+      
+      - name: Check if version exists on pub.dev
+        id: check_version
+        run: |
+          PACKAGE_NAME=$(grep '^name:' pubspec.yaml | sed 's/name: //')
+          CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
+          
+          # Check if version exists on pub.dev
+          STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://pub.dev/api/packages/$PACKAGE_NAME/versions/$CURRENT_VERSION")
+          
+          if [ "$STATUS_CODE" = "200" ]; then
+            echo "needs_release=true" >> $GITHUB_OUTPUT
+            echo "Version $CURRENT_VERSION exists on pub.dev, will increment version"
+          else
+            echo "needs_release=false" >> $GITHUB_OUTPUT
+            echo "Version $CURRENT_VERSION does not exist on pub.dev, will publish current version"
+          fi
+      
+      - name: Get latest published version
+        id: latest_version
+        if: steps.check_version.outputs.needs_release == 'true'
+        run: |
+          PACKAGE_NAME=$(grep '^name:' pubspec.yaml | sed 's/name: //')
+          
+          # Get latest version from pub.dev
+          LATEST_VERSION=$(curl -s "https://pub.dev/api/packages/$PACKAGE_NAME" | jq -r '.latest.version // "0.0.0"')
+          echo "latest=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          echo "Latest published version: $LATEST_VERSION"
+      
+      - name: Get commits since last version
+        id: commits
+        if: steps.check_version.outputs.needs_release == 'true'
+        run: |
+          LATEST_VERSION="${{ steps.latest_version.outputs.latest }}"
+          
+          # Try to find tag for latest version
+          TAG_EXISTS=$(git tag -l "v$LATEST_VERSION" | wc -l)
+          
+          if [ "$TAG_EXISTS" -eq 1 ]; then
+            # Get commits since last tag
+            COMMITS=$(git log v$LATEST_VERSION..HEAD --oneline --no-merges)
+          else
+            # Get all commits if no tag exists
+            COMMITS=$(git log --oneline --no-merges -10)
+          fi
+          
+          # Save commits to file for multiline handling
+          echo "$COMMITS" > commits.txt
+          echo "Commits since last version:"
+          cat commits.txt
+      
+      - name: Increment version
+        id: increment_version
+        if: steps.check_version.outputs.needs_release == 'true'
+        run: |
+          CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
+          
+          # Extract version parts (assuming semantic versioning)
+          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+          MAJOR=${VERSION_PARTS[0]}
+          MINOR=${VERSION_PARTS[1]}
+          PATCH=${VERSION_PARTS[2]}
+          
+          # Increment patch version
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+          
+          # Update pubspec.yaml
+          sed -i "s/^version: .*/version: $NEW_VERSION/" pubspec.yaml
+      
+      - name: Update CHANGELOG.md
+        if: steps.check_version.outputs.needs_release == 'true'
+        run: |
+          NEW_VERSION="${{ steps.increment_version.outputs.new_version }}"
+          DATE=$(date +"%Y-%m-%d")
+          
+          # Create new changelog entry
+          echo "## $NEW_VERSION - $DATE" > new_changelog.md
+          echo "" >> new_changelog.md
+          
+          # Add commits as changelog entries
+          if [ -f commits.txt ]; then
+            while IFS= read -r commit; do
+              if [ -n "$commit" ]; then
+                # Extract commit hash and message
+                HASH=$(echo "$commit" | cut -d' ' -f1)
+                MESSAGE=$(echo "$commit" | cut -d' ' -f2-)
+                echo "- $MESSAGE ($HASH)" >> new_changelog.md
+              fi
+            done < commits.txt
+          fi
+          
+          echo "" >> new_changelog.md
+          
+          # Prepend to existing CHANGELOG.md
+          if [ -f CHANGELOG.md ]; then
+            # Skip the first line (# Changelog) and prepend new content
+            tail -n +2 CHANGELOG.md > temp_changelog.md
+            echo "# Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            cat new_changelog.md >> CHANGELOG.md
+            cat temp_changelog.md >> CHANGELOG.md
+            rm temp_changelog.md new_changelog.md
+          else
+            # Create new CHANGELOG.md
+            echo "# Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            cat new_changelog.md >> CHANGELOG.md
+            rm new_changelog.md
+          fi
+          
+          rm -f commits.txt
+      
+      - name: Commit version and changelog updates
+        if: steps.check_version.outputs.needs_release == 'true'
+        run: |
+          NEW_VERSION="${{ steps.increment_version.outputs.new_version }}"
+          
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          git add pubspec.yaml CHANGELOG.md
+          git commit -m "chore: bump version to $NEW_VERSION and update changelog"
+          git push
+      
+      - name: Create Git Tag
+        if: steps.check_version.outputs.needs_release == 'true'
+        run: |
+          NEW_VERSION="${{ steps.increment_version.outputs.new_version }}"
+          git tag "v$NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+      
+      - name: Setup pub.dev credentials
+        run: |
+          mkdir -p $HOME/.config/dart
+          echo '${{ secrets.PUB_JSON }}' >> $HOME/.config/dart/pub-credentials.json
+      
+      - name: Publish to pub.dev
+        run: |
+          dart pub get
+          dart pub publish --force
+      
+      - name: Create GitHub Release
+        if: steps.check_version.outputs.needs_release == 'true'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.increment_version.outputs.new_version }}
+          release_name: Release v${{ steps.increment_version.outputs.new_version }}
+          draft: false
+          prerelease: false
+      
+      - name: Publish current version (no increment needed)
+        if: steps.check_version.outputs.needs_release == 'false'
+        run: |
+          echo "Publishing current version ${{ steps.current_version.outputs.version }} to pub.dev"
+          # Version doesn't exist on pub.dev, just publish current version

@@ -1,0 +1,35 @@
+name: calendar_bridge
+description: A cross-platform Flutter plugin for accessing and managing device calendars on Android, iOS, and macOS with clean architecture.
+version: 1.0.0
+homepage: https://github.com/ahmtydn/calendar_bridge
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.3.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  plugin_platform_interface: ^2.0.2
+  meta: ^1.9.1
+  collection: ^1.18.0
+  timezone: ^0.9.0
+  rrule: ^0.2.15
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^10.0.0
+  
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.ahmtydn.calendar_bridge
+        pluginClass: CalendarBridgePlugin
+      ios:
+        pluginClass: CalendarBridgePlugin
+        sharedDarwinSource: true
+      macos:
+        pluginClass: CalendarBridgePlugin
+        sharedDarwinSource: true
