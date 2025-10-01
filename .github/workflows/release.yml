@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: Release
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
       - name: Analyze project source
-        run: dartanalyzer --fatal-infos --fatal-warnings .
+        run: dart analyze --fatal-infos --fatal-warnings .
 
   test:
     name: Test
