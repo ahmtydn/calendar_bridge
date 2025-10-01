@@ -79,15 +79,9 @@ final class CalendarBridgeMethodChannel implements CalendarRepository {
 
       return result.map(
         (json) {
-          print('DEBUG: json type: ${json.runtimeType}');
-          print('DEBUG: json content: $json');
-          if (json is Map<String, dynamic>) {
-            return CalendarEvent.fromJson(json);
-          } else {
-            return CalendarEvent.fromJson(
-              _convertToStringDynamicMap(json as Map<Object?, Object?>),
-            );
-          }
+          return CalendarEvent.fromJson(
+            _convertToStringDynamicMap(json as Map<Object?, Object?>),
+          );
         },
       ).toList();
     } on PlatformException catch (e) {
