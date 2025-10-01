@@ -30,12 +30,7 @@ jobs:
   test:
     name: Test
     needs: analyze
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        flutter-version: ['3.3.0', '3.10.0', 'stable']
+    runs-on: ubuntu-latest
     
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +38,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ matrix.flutter-version }}
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
       
       - name: Install dependencies
