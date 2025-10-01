@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.2
+
+### Bug Fixes
+
+- Fixed type casting issue in CalendarBridgeMethodChannel that caused `_Map<Object?, Object?>` is not a subtype of `Map<String, dynamic>` errors
+- Improved defensive type casting in getCalendars(), getEvents(), createCalendar(), getCalendarColors(), and getEventColors() methods
+- Enhanced platform channel data handling for better compatibility across different Flutter versions
+
 ## 1.0.1
 
 ### Improvements

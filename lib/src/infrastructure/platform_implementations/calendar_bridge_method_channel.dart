@@ -46,8 +46,11 @@ final class CalendarBridgeMethodChannel implements CalendarRepository {
       if (result == null) return [];
 
       return result
-          .cast<Map<dynamic, dynamic>>()
-          .map((json) => Calendar.fromJson(Map<String, dynamic>.from(json)))
+          .map(
+            (json) => Calendar.fromJson(
+              Map<String, dynamic>.from(json as Map<Object?, Object?>),
+            ),
+          )
           .toList();
     } on PlatformException catch (e) {
       throw _mapPlatformException(e);
@@ -75,9 +78,10 @@ final class CalendarBridgeMethodChannel implements CalendarRepository {
       if (result == null) return [];
 
       return result
-          .cast<Map<dynamic, dynamic>>()
           .map(
-            (json) => CalendarEvent.fromJson(Map<String, dynamic>.from(json)),
+            (json) => CalendarEvent.fromJson(
+              Map<String, dynamic>.from(json as Map<Object?, Object?>),
+            ),
           )
           .toList();
     } on PlatformException catch (e) {
@@ -155,7 +159,9 @@ final class CalendarBridgeMethodChannel implements CalendarRepository {
         );
       }
 
-      return Calendar.fromJson(Map<String, dynamic>.from(result));
+      return Calendar.fromJson(
+        Map<String, dynamic>.from(result as Map<Object?, Object?>),
+      );
     } on PlatformException catch (e) {
       throw _mapPlatformException(e);
     } catch (e) {
@@ -185,7 +191,7 @@ final class CalendarBridgeMethodChannel implements CalendarRepository {
 
       if (result == null) return null;
 
-      return Map<String, int>.from(result);
+      return Map<String, int>.from(result as Map<Object?, Object?>);
     } on PlatformException catch (e) {
       throw _mapPlatformException(e);
     } catch (e) {
@@ -203,7 +209,7 @@ final class CalendarBridgeMethodChannel implements CalendarRepository {
 
       if (result == null) return null;
 
-      return Map<String, int>.from(result);
+      return Map<String, int>.from(result as Map<Object?, Object?>);
     } on PlatformException catch (e) {
       throw _mapPlatformException(e);
     } catch (e) {
