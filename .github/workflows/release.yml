@@ -11,25 +11,8 @@ env:
   FLUTTER_VERSION: '3.35.4'
 
 jobs:
-  analyze:
-    name: Analyze
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-      - name: Install dependencies
-        run: flutter pub get
-      - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed .
-      - name: Analyze project source
-        run: dart analyze --fatal-infos --fatal-warnings .
-
   test:
-    name: Test
-    needs: analyze
+    name: Test & Analyze
     runs-on: ubuntu-latest
     
     steps:
@@ -40,9 +23,16 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
+          cache: true
       
       - name: Install dependencies
         run: flutter pub get
+      
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+        
+      - name: Analyze project source
+        run: dart analyze --fatal-infos --fatal-warnings .
       
       - name: Run tests
         run: flutter test --coverage
@@ -57,7 +47,7 @@ jobs:
 
   publish:
     name: Publish Package
-    needs: [analyze, test]
+    needs: test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     
