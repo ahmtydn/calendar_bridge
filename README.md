@@ -45,7 +45,7 @@ A comprehensive Flutter plugin for accessing and managing device calendars on An
 | Platform | Supported | Notes |
 |----------|-----------|-------|
 | Android  | Yes | API 21+ |
-| iOS      | Yes | iOS 1+ |
+| iOS      | Yes | iOS 13+ |
 | macOS    | Yes | macOS 11+ |
 
 ## Installation
