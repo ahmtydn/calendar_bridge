@@ -4,6 +4,7 @@ import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
+import android.graphics.Color
 import android.provider.CalendarContract
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -30,7 +31,10 @@ class EventManager(private val context: Context) {
             CalendarContract.Events.AVAILABILITY,
             CalendarContract.Events.STATUS,
             CalendarContract.Events.RRULE,
-            CalendarContract.Events.DTSTART
+            CalendarContract.Events.DTSTART,
+            CalendarContract.Events.EVENT_COLOR,
+            CalendarContract.Events.EVENT_COLOR_KEY,
+            CalendarContract.Instances.DISPLAY_COLOR 
         )
 
         var selection: String
@@ -85,6 +89,26 @@ class EventManager(private val context: Context) {
                 val status = it.getInt(9)
                 val rrule = it.getString(10)
                 val originalStartTime = it.getLong(11)
+                
+                val eventColorIndex = 12
+                val eventColorKeyIndex = 13
+                val displayColorIndex = 14
+                
+                var eventColorInt: Int? = null
+                var eventColorKey: String? = null
+                var displayColorInt: Int? = null
+                
+                if (!it.isNull(eventColorIndex)) {
+                    eventColorInt = it.getInt(eventColorIndex)
+                }
+                
+                if (!it.isNull(eventColorKeyIndex)) {
+                    eventColorKey = it.getString(eventColorKeyIndex)
+                }
+                
+                if (!it.isNull(displayColorIndex)) {
+                    displayColorInt = it.getInt(displayColorIndex)
+                }
 
                 val eventMap = mutableMapOf<String, Any>(
                     "eventId" to eventId,
@@ -99,6 +123,16 @@ class EventManager(private val context: Context) {
 
                 description?.let { eventMap["description"] = it }
                 location?.let { eventMap["location"] = it }
+                
+                if (eventColorKey != null) {
+                    eventMap["eventColorKey"] = eventColorKey
+                    eventMap["eventColor"] = eventColorKey
+                } else if (eventColorInt != null) {
+                    eventMap["eventColor"] = String.format("#%08X", eventColorInt)
+                }
+
+                displayColorInt?.let { eventMap["displayColor"] = String.format("#%08X", it) }
+                
                 rrule?.let { 
                     eventMap["recurrenceRule"] = "RRULE:$it"
                 }
@@ -165,6 +199,45 @@ class EventManager(private val context: Context) {
                 put(CalendarContract.Events.STATUS, statusFromString(it as String))
             }
             
+            // Accept either an Int or a String (hex or key) for eventColor
+            arguments["eventColor"]?.let {
+                when (it) {
+                    is Int -> put(CalendarContract.Events.EVENT_COLOR, it)
+                    is String -> {
+                        val s = it.trim()
+                        if (s.startsWith("#")) {
+                            try {
+                                put(CalendarContract.Events.EVENT_COLOR, Color.parseColor(s))
+                            } catch (e: IllegalArgumentException) {
+                                // ignore invalid color string
+                            }
+                        } else {
+                            s.toIntOrNull()?.let { num -> put(CalendarContract.Events.EVENT_COLOR, num) } ?: put(CalendarContract.Events.EVENT_COLOR_KEY, s)
+                        }
+                    }
+                }
+            }
+            
+            arguments["eventColorKey"]?.let {
+                put(CalendarContract.Events.EVENT_COLOR_KEY, it as String)
+            }
+
+            arguments["displayColor"]?.let {
+                when (it) {
+                    is Int -> put(CalendarContract.Events.DISPLAY_COLOR, it)
+                    is String -> {
+                        val s = it.trim()
+                        if (s.startsWith("#")) {
+                            try {
+                                put(CalendarContract.Events.DISPLAY_COLOR, Color.parseColor(s))
+                            } catch (e: IllegalArgumentException) { }
+                        } else {
+                            s.toIntOrNull()?.let { num -> put(CalendarContract.Events.DISPLAY_COLOR, num) }
+                        }
+                    }
+                }
+            }
+
             arguments["recurrenceRule"]?.let {
                 val raw = it as String
                 val normalized = if (raw.startsWith("RRULE:", ignoreCase = true)) {
@@ -243,6 +316,45 @@ class EventManager(private val context: Context) {
         
         arguments["status"]?.let { 
             values.put(CalendarContract.Events.STATUS, statusFromString(it as String))
+        }
+        
+        // Accept either an Int or a String (hex or key) for eventColor
+        arguments["eventColor"]?.let {
+            when (it) {
+                is Int -> values.put(CalendarContract.Events.EVENT_COLOR, it)
+                is String -> {
+                    val s = it.trim()
+                    if (s.startsWith("#")) {
+                        try {
+                            values.put(CalendarContract.Events.EVENT_COLOR, Color.parseColor(s))
+                        } catch (e: IllegalArgumentException) {
+                            // ignore invalid color string
+                        }
+                    } else {
+                        s.toIntOrNull()?.let { num -> values.put(CalendarContract.Events.EVENT_COLOR, num) } ?: values.put(CalendarContract.Events.EVENT_COLOR_KEY, s)
+                    }
+                }
+            }
+        }
+        
+        arguments["eventColorKey"]?.let {
+            values.put(CalendarContract.Events.EVENT_COLOR_KEY, it as String)
+        }
+
+        arguments["displayColor"]?.let {
+            when (it) {
+                is Int -> values.put(CalendarContract.Events.DISPLAY_COLOR, it)
+                is String -> {
+                    val s = it.trim()
+                    if (s.startsWith("#")) {
+                        try {
+                            values.put(CalendarContract.Events.DISPLAY_COLOR, Color.parseColor(s))
+                        } catch (e: IllegalArgumentException) { }
+                    } else {
+                        s.toIntOrNull()?.let { num -> values.put(CalendarContract.Events.DISPLAY_COLOR, num) }
+                    }
+                }
+            }
         }
         
         arguments["recurrenceRule"]?.let {
