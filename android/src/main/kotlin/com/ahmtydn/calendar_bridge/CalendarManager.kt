@@ -137,8 +137,19 @@ class CalendarManager(private val context: Context) {
             put(CalendarContract.Calendars.VISIBLE, 1)
         }
 
-        val uri = context.contentResolver.insert(CalendarContract.Calendars.CONTENT_URI, values)
-            ?: throw CalendarException.PlatformError("Failed to create calendar")
+        // Use sync adapter query params to allow writing ACCOUNT_NAME/ACCOUNT_TYPE
+        // See: https://developer.android.com/reference/android/provider/CalendarContract.Calendars
+        val insertUri = CalendarContract.Calendars.CONTENT_URI.buildUpon()
+            .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
+            .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_NAME, localAccountName)
+            .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
+            .build()
+
+        val uri = try {
+            context.contentResolver.insert(insertUri, values)
+        } catch (e: IllegalArgumentException) {
+            throw CalendarException.PlatformError("Failed to create calendar: ${e.message}")
+        } ?: throw CalendarException.PlatformError("Failed to create calendar")
 
         val calendarId = uri.lastPathSegment
             ?: throw CalendarException.PlatformError("Failed to get calendar ID")
