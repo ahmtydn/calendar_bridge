@@ -27,6 +27,7 @@ class CalendarEvent {
     this.availability,
     this.organizer,
     this.eventColor,
+    this.displayColor,
   });
 
   /// Create a new event with required fields
@@ -102,6 +103,7 @@ class CalendarEvent {
           ? Attendee.fromJson(json['organizer'] as Map<String, dynamic>)
           : null,
       eventColor: json['eventColor'] as String?,
+      displayColor: json['displayColor'] as String?,
     );
   }
 
@@ -163,6 +165,9 @@ class CalendarEvent {
   /// Color of the event (hex color or color key)
   final String? eventColor;
 
+  /// Display color for the event (hex color string like #AARRGGBB)
+  final String? displayColor;
+
   /// Converts the calendar event to a JSON map
   Map<String, dynamic> toJson() {
     return {
@@ -183,6 +188,7 @@ class CalendarEvent {
       'availability': availability?.value,
       'organizer': organizer?.toJson(),
       'eventColor': eventColor,
+      'displayColor': displayColor,
     };
   }
 
@@ -206,6 +212,7 @@ class CalendarEvent {
     EventAvailability? availability,
     Attendee? organizer,
     String? eventColor,
+    String? displayColor,
   }) {
     return CalendarEvent(
       calendarId: calendarId ?? this.calendarId,
@@ -225,6 +232,7 @@ class CalendarEvent {
       availability: availability ?? this.availability,
       organizer: organizer ?? this.organizer,
       eventColor: eventColor ?? this.eventColor,
+      displayColor: displayColor ?? this.displayColor,
     );
   }
 
@@ -248,7 +256,8 @@ class CalendarEvent {
         other.eventStatus == eventStatus &&
         other.availability == availability &&
         other.organizer == organizer &&
-        other.eventColor == eventColor;
+        other.eventColor == eventColor &&
+        other.displayColor == displayColor;
   }
 
   @override
@@ -271,6 +280,7 @@ class CalendarEvent {
       availability,
       organizer,
       eventColor,
+      displayColor,
     );
   }
 
